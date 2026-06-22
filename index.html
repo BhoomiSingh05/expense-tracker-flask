@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header>
+    <h1>💰 Expense Tracker</h1>
+
+    {% if session.get('username') %}
+    <div class="user-bar">
+        <span>Hi, {{ session.get('username') }}</span>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+    {% endif %}
+</header>
+
+<main>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for m in messages %}
+                <div class="flash">{{ m }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if page == 'login' %}
+
+    <div class="auth-box">
+        <h2>Login</h2>
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <label>Username</label>
+            <input type="text"
+                   name="username"
+                   required
+                   autofocus>
+
+            <label>Password</label>
+            <input type="password"
+                   name="password"
+                   required>
+
+            <button type="submit">Login</button>
+        </form>
+
+        <p>
+            No account?
+            <a href="{{ url_for('register') }}">Register</a>
+        </p>
+    </div>
+
+    {% elif page == 'register' %}
+
+    <div class="auth-box">
+        <h2>Register</h2>
+
+        <form method="POST" action="{{ url_for('register') }}">
+            <label>Username</label>
+            <input type="text"
+                   name="username"
+                   required
+                   autofocus>
+
+            <label>Password</label>
+            <input type="password"
+                   name="password"
+                   minlength="6"
+                   required>
+
+            <button type="submit">Register</button>
+        </form>
+
+        <p>
+            Already have an account?
+            <a href="{{ url_for('login') }}">Login</a>
+        </p>
+    </div>
+
+    {% elif page == 'edit' %}
+
+    <div class="add-form">
+        <h3>Edit Expense</h3>
+
+        <form method="POST"
+              action="{{ url_for('edit_expense', expense_id=expense.id) }}">
+
+            <input type="number"
+                   step="0.01"
+                   min="0.01"
+                   name="amount"
+                   placeholder="Amount"
+                   value="{{ expense.amount }}"
+                   required>
+
+            <select name="category" required>
+                {% for c in categories %}
+                <option value="{{ c }}" {% if c == expense.category %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="text"
+                   name="description"
+                   placeholder="Description"
+                   value="{{ expense.description or '' }}">
+
+            <input type="date"
+                   name="expense_date"
+                   value="{{ expense.expense_date }}">
+
+            <button type="submit">Save Changes</button>
+
+        </form>
+
+        <p>
+            <a href="{{ url_for('home') }}">&larr; Back to dashboard</a>
+        </p>
+    </div>
+
+    {% elif page == 'dashboard' %}
+
+    <section class="summary">
+        <h2>Total Spent: ₹{{ "%.2f"|format(total) }}</h2>
+    </section>
+
+    <section class="add-form">
+        <h3>Add Expense</h3>
+
+        <form method="POST"
+              action="{{ url_for('add_expense') }}">
+
+            <input type="number"
+                   step="0.01"
+                   min="0.01"
+                   name="amount"
+                   placeholder="Amount"
+                   required>
+
+            <select name="category" required>
+                {% for c in categories %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="text"
+                   name="description"
+                   placeholder="Description">
+
+            <input type="date"
+                   name="expense_date"
+                   value="{{ today }}">
+
+            <button type="submit">Add Expense</button>
+
+        </form>
+    </section>
+
+    <!-- PIE CHART -->
+
+    <section class="chart-section">
+        <h3>Category Wise Expenses</h3>
+
+        {% if chart_labels %}
+        <div style="width:500px;max-width:100%;margin:auto;">
+            <canvas id="expenseChart"></canvas>
+        </div>
+        {% else %}
+        <p>No expense data to chart yet.</p>
+        {% endif %}
+    </section>
+
+    <!-- EXPENSE LIST -->
+
+    <section class="expense-list">
+
+        <h3>Your Expenses</h3>
+
+        {% if expenses %}
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            {% for e in expenses %}
+
+            <tr>
+
+                <td>{{ e.expense_date }}</td>
+
+                <td>{{ e.category }}</td>
+
+                <td>{{ e.description or "-" }}</td>
+
+                <td>₹{{ "%.2f"|format(e.amount) }}</td>
+
+                <td>
+
+                    <a href="{{ url_for('edit_expense', expense_id=e.id) }}">
+                        <button type="button" class="edit-btn">
+                            Edit
+                        </button>
+                    </a>
+
+                    <form method="POST"
+                          action="{{ url_for('delete_expense', expense_id=e.id) }}"
+                          style="display:inline;"
+                          onsubmit="return confirm('Delete this expense?');">
+
+                        <button type="submit" class="delete-btn">
+                            Delete
+                        </button>
+
+                    </form>
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        {% else %}
+
+        <p>No expenses yet. Add your first expense.</p>
+
+        {% endif %}
+
+    </section>
+
+    {% endif %}
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+{% if page == 'dashboard' %}
+<script>
+
+const labels = {{ chart_labels | tojson }};
+const values = {{ chart_values | tojson }};
+
+if (labels.length > 0) {
+
+    const ctx = document.getElementById("expenseChart");
+
+    new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                backgroundColor: [
+                    "#FF6384",
+                    "#36A2EB",
+                    "#FFCE56",
+                    "#4BC0C0",
+                    "#9966FF",
+                    "#FF9F40",
+                    "#8DD17E",
+                    "#D65DB1"
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: "bottom"
+                }
+            }
+        }
+    });
+
+}
+
+</script>
+{% endif %}
+
+</body>
+</html>
